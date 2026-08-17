@@ -1,0 +1,33 @@
+{
+  "name": "codex-remote-control",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w @codex-remote/shared && npm run build -w @codex-remote/web && npm run build -w @codex-remote/server",
+    "dev": "npm run build -w @codex-remote/shared && concurrently -k -n server,web -c cyan,green \"npm run dev -w @codex-remote/server\" \"npm run dev -w @codex-remote/web\"",
+    "format:check": "prettier --check .",
+    "protocol:generate": "node scripts/generate-protocol.mjs",
+    "setup:env": "node scripts/setup-local-env.mjs",
+    "verify:live": "node scripts/verify-live-app-server.mjs",
+    "start": "npm run start -w @codex-remote/server",
+    "test": "npm run test --workspaces --if-present",
+    "test:e2e": "playwright test",
+    "pretypecheck": "npm run build -w @codex-remote/shared",
+    "typecheck": "npm run typecheck --workspaces --if-present && tsc -p tsconfig.e2e.json --noEmit"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0",
+    "concurrently": "^9.2.1",
+    "prettier": "^3.6.2",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

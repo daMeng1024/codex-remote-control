@@ -1,0 +1,22 @@
+[Unit]
+Description=Codex Remote Control Workbench
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/epean/code/epean/other/remoteControl
+Environment=NODE_ENV=production
+EnvironmentFile=%h/.config/codex-remote-control/env
+ExecStart=/usr/bin/node apps/server/dist/index.js
+Restart=on-failure
+RestartSec=3
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,10 @@
+packages/shared/src/codex-generated/
+deploy/systemd/
+.env
+.env.example
+.dev-access-password
+.gitignore
+package-lock.json
+output/
+playwright-report/
+test-results/

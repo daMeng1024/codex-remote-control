@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.env
+.dev-access-password
+playwright-report/
+test-results/
+output/playwright/
+*.log
+*.tsbuildinfo
