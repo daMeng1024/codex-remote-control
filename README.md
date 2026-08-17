@@ -1,96 +1,137 @@
 # Codex 远程控制工作台
 
-面向个人使用的 Codex 会话工作台。浏览器只访问应用级 REST/WebSocket DTO，网关通过 managed `codex app-server` 的 Unix socket 接管已有 App、CLI 和工作台会话。
+通过手机或桌面浏览器接管本机现有 Codex 会话的单用户工作台。React 前端只访问应用级 REST/WebSocket 接口，Fastify 网关通过 Unix Domain Socket 连接 managed `codex app-server`。
 
-## 能力边界
+> [!IMPORTANT]
+> 当前版本面向受信任的 ZeroTier 私网，不自带公网 HTTPS、多人权限或反向代理。不要把 HTTP 服务直接暴露到互联网。
 
-- 会话搜索、状态/归档筛选、历史分页、新建、恢复、分叉、命名和归档
-- 文字/图片发送、运行中 steer、中断、Markdown 实时消息、指令重新编辑、计划、命令输出、统一 diff 和 token 状态
-- 命令、文件、权限、`request_user_input` 和 MCP elicitation 的服务端审批
-- 版本必须精确匹配 `codex-cli 0.146.0`；不匹配时自动降级为只读
-- 新会话 cwd 必须 realpath 到 `/home/epean/code` 内，越界路径和越界符号链接会被拒绝
-- 不提供原始 JSON-RPC、通用 Shell、独立文件编辑、后台推送或永久删除
+## 核心能力
 
-## 目录
+- 接管 Codex App、CLI 和本工作台创建的现有会话
+- 搜索、状态筛选、历史分页、新建、恢复、分叉、命名和归档会话
+- 实时显示 Markdown、计划、命令输出、文件 diff、工具活动和 token 使用量
+- 发送文字与图片，运行中追加指令（steer）或中断 turn
+- 将历史用户指令重新填入输入框后编辑发送
+- 远程处理命令、文件修改、权限、`request_user_input` 和 MCP elicitation
+- 手机列表到详情导航、固定输入区和审批抽屉，兼容桌面三栏布局
 
-```text
-apps/server       Fastify 网关与 app-server UDS 客户端
-apps/web          React/Vite 工作台
-packages/shared   应用 DTO 与隔离的 Codex 0.146.0 生成协议类型
-deploy/systemd    用户服务和环境文件模板
-```
+工作台不向浏览器暴露 Codex socket、原始 JSON-RPC、通用 Shell、独立文件编辑或任意插件安装接口。
 
-## 本地开发
+## 兼容性基线
 
-要求 Node.js 22+、npm 9+，以及正在运行的 managed `codex app-server`。
+| 组件                   | 要求                                           |
+| ---------------------- | ---------------------------------------------- |
+| Node.js                | 22 或更高                                      |
+| npm                    | 9 或更高                                       |
+| Codex CLI / app-server | 精确匹配 `0.146.0`                             |
+| 运行平台               | Linux 或 WSL2，能够访问 managed app-server UDS |
+| 浏览器                 | 当前版本的 Chrome、Edge、Safari 或 Firefox     |
+
+网关会运行 `codex app-server daemon version` 动态取得 socket。运行版本与 `0.146.0` 不一致时，工作台自动进入只读模式，禁止发送、审批和其他变更操作。
+
+## 快速开始
 
 ```bash
-npm install
+git clone https://github.com/daMeng1024/codex-remote-control.git
+cd codex-remote-control
+npm ci
 npm run setup:env
 npm run dev
 ```
 
-开发页面默认是 `http://127.0.0.1:5173`，网关是 `http://127.0.0.1:8787`。随机访问口令只保存在仓库根目录的 `.dev-access-password`，`.env` 和口令文件均以 `0600` 创建且已忽略，不要提交或发到聊天中。
+启动后访问 `http://127.0.0.1:5173`。网关默认监听 `http://127.0.0.1:8787`，Vite 会代理 `/api` 和 WebSocket。
 
-`setup:env` 在文件已存在时会拒绝覆盖。手工配置可从 `.env.example` 开始，口令哈希可通过以下命令生成：
+随机访问口令保存在根目录的 `.dev-access-password`。`.env` 与口令文件均以 `0600` 创建并被 Git 忽略。不要把口令、哈希、Cookie 或 session secret 提交到仓库或发送到聊天中。
 
-```bash
-npm run password:hash -w @codex-remote/server -- "your-long-random-password"
-```
-
-## 协议更新
-
-生成代码只来自当前已安装的 Codex CLI：
+在开始前确认 managed app-server 可用：
 
 ```bash
-npm run protocol:generate
+codex --version
+codex app-server daemon version
 ```
 
-脚本执行 `codex app-server generate-ts --experimental`，并同步更新 `SUPPORTED_CODEX_VERSION`。生成类型与应用 DTO 分离，浏览器不会获得 Codex 原始协议入口。
+完整的环境准备、首次登录和生产构建说明见[快速入门](docs/getting-started.md)。
 
-网关按 `codex app-server daemon version` 返回的路径连接 UDS，并关闭 `permessage-deflate`，使 upgrade 与 managed daemon 的严格 WebSocket 握手一致。可运行真实只读/低风险联调：
+## 文档
+
+| 文档                                           | 内容                                                 |
+| ---------------------------------------------- | ---------------------------------------------------- |
+| [快速入门](docs/getting-started.md)            | 前置条件、安装、首次启动、登录和基础验证             |
+| [用户手册](docs/user-guide.md)                 | 手机与桌面操作、会话、图片、steer、中断和审批        |
+| [配置参考](docs/configuration.md)              | 全部环境变量、口令、Cookie、Origin 和路径约束        |
+| [ZeroTier 与 systemd 部署](docs/deployment.md) | 私网地址、WSL2、防火墙、用户服务、升级和回滚         |
+| [架构与安全](docs/architecture.md)             | 组件边界、数据流、重连、状态模型和威胁边界           |
+| [应用 API](docs/api.md)                        | REST DTO、WebSocket 事件、状态码和调用限制           |
+| [开发与验证](docs/development.md)              | workspace、协议生成、测试、构建和真实联调            |
+| [故障排查](docs/troubleshooting.md)            | 登录、Origin、版本、daemon、ZeroTier、图片和实时连接 |
+
+## 生产部署摘要
+
+生产部署通常按以下顺序完成：
+
+1. 在主机安装依赖并执行 `npm ci`、`npm run build`。
+2. 生成 scrypt 口令哈希和至少 32 字符的 session secret。
+3. 将环境文件保存到 `~/.config/codex-remote-control/env` 并设置为 `0600`。
+4. 将 `BIND_HOST` 和 `ZEROTIER_ADDRESS` 设置为主机实际拥有的同一个 ZeroTier IP。
+5. 将 `ALLOWED_ORIGINS` 限定为真实工作台来源。
+6. 按实际克隆目录调整 systemd 用户服务模板。
+7. 启动后从主机和异地 ZeroTier 客户端分别检查 `/api/health`。
+
+生产模式拒绝 `0.0.0.0`、`::`、主机名、未分配到本机接口的地址，以及与 `ZEROTIER_ADDRESS` 不一致的监听地址。详细步骤和 WSL2 双层防火墙说明见[部署文档](docs/deployment.md)。
+
+## 安全边界
+
+- scrypt 口令哈希
+- 12 小时 HMAC 会话 Cookie，`HttpOnly`、`SameSite=Strict`
+- 登录按来源 IP 限制为 10 分钟最多 5 次
+- 写请求和 WebSocket 强制校验精确 Origin
+- 工作目录经过 `realpath` 校验，必须位于 `WORKSPACE_ROOT` 内
+- 日志脱敏密码、Cookie、消息、prompt 和审批答案
+- 审批按钮只来自 app-server 实际返回的决定集合
+- 已解决、过期或断线失效的审批立即移除
+- JPEG、PNG、WebP 文件头校验，单张不超过 10 MB，每个 turn 不超过 4 张
+- 图片使用随机 ID 和 `0600` 临时文件，启动时清理超过 24 小时的文件
+- app-server 版本不匹配或离线时自动只读
+
+浏览器接口是固定动作白名单，不提供 `command/exec`、文件写入、配置修改或插件安装等任意 RPC 透传。安全设计和仍需由部署者承担的风险见[架构与安全](docs/architecture.md)。
+
+## 项目结构
+
+```text
+apps/server       Fastify 网关、认证、附件和 app-server UDS 客户端
+apps/web          React/Vite 手机优先工作台
+packages/shared   应用 DTO 与隔离的 Codex 生成协议类型
+deploy/systemd    systemd 用户服务和环境文件模板
+docs              使用、部署、架构、API、开发和排错文档
+e2e               Playwright 端到端测试
+scripts           环境初始化、协议生成和真实 app-server 验证
+```
+
+## 常用开发命令
 
 ```bash
-npm run verify:live
+npm run dev                 # 启动网关与 Vite
+npm run typecheck           # 全 workspace 类型检查
+npm test                    # 单元和组件测试
+npm run test:e2e            # Playwright 手机与桌面流程
+npm run build               # 生产构建
+npm run verify:live         # 真实 managed app-server 低风险联调
+npm run protocol:generate   # 按当前 Codex CLI 重新生成协议类型
 ```
 
-该检查会 initialize、列出会话、rejoin 最近会话、读取一页历史并 unsubscribe；中断检查只使用 ephemeral 测试线程，不执行命令或文件操作。
+`protocol:generate` 会删除并重新生成 `packages/shared/src/codex-generated`，同时更新 `SUPPORTED_CODEX_VERSION`。生成后必须完成类型检查、测试、构建和真实联调，不能只提交生成文件。
 
-## 验证
+## 明确不支持
 
-在 WSL2 上，typecheck、测试和构建必须通过共享 build queue：
+- 直接公网 HTTP 部署
+- 多用户、角色和细粒度租户隔离
+- Passkey、OIDC 或第三方登录
+- 后台通知和离线审批提醒
+- 独立终端、通用文件浏览器或文件编辑器
+- 会话永久删除
+- 除 JPEG、PNG、WebP 之外的附件
+- 业务数据库或跨主机会话复制
 
-```bash
-/mnt/d/agent/scripts/wsl2/build-queue/build-queue.sh run \
-  --task-id codex-remote-control --kind typescript \
-  --workdir /home/epean/code/epean/other/remoteControl -- npm run typecheck
+## License
 
-/mnt/d/agent/scripts/wsl2/build-queue/build-queue.sh run \
-  --task-id codex-remote-control --kind test \
-  --workdir /home/epean/code/epean/other/remoteControl -- npm test
-
-/mnt/d/agent/scripts/wsl2/build-queue/build-queue.sh run \
-  --task-id codex-remote-control --kind frontend \
-  --workdir /home/epean/code/epean/other/remoteControl -- npm run build
-```
-
-## ZeroTier 部署边界
-
-生产模式拒绝 `0.0.0.0`、`::` 和主机名。非 loopback 监听还必须满足：
-
-1. `BIND_HOST` 与 `ZEROTIER_ADDRESS` 完全一致。
-2. 该地址确实出现在当前 WSL2 的本机网络接口中。
-3. `ALLOWED_ORIGINS` 只包含实际工作台来源。
-
-当前模板使用 `10.123.129.30:8787`，不会同时绑定 `192.168.6.166`。ZeroTier 提供链路加密，应用口令提供第二层身份验证；本版本不提供公网 HTTPS、Passkey 或多人权限。
-
-`deploy/systemd` 仅是模板。复制环境文件、安装 unit、`enable` 或 `start` 都是独立运维动作，不由开发或构建命令执行。
-
-## 安全实现
-
-- scrypt 口令哈希，12 小时 HMAC 会话 Cookie（HttpOnly、SameSite=Strict）
-- 登录按来源 IP 限流；写请求和 WebSocket 强制 Origin 白名单
-- 日志脱敏口令、Cookie、消息、prompt 和审批答案
-- REST 动作为固定白名单，审计日志只记录时间、来源 IP、动作和对象 ID
-- 图片仅接受 JPEG/PNG/WebP，单张不超过 10 MB、每次不超过 4 张；服务端校验文件头并使用随机 ID 和 `0600` 临时文件，24 小时后清理
-- Codex 是会话事实源；服务只在内存中保存连接、订阅、实时状态和待审批映射
+当前仓库尚未声明开源许可证。公开可读不等于自动授予复制、修改或再发布权限；采用开源许可证前需要由仓库所有者明确选择并添加 `LICENSE`。
