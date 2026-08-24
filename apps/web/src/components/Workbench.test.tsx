@@ -199,4 +199,55 @@ describe("Workbench", () => {
       screen.getByRole("dialog", { name: "待处理请求" }),
     ).toBeInTheDocument();
   });
+
+  it("opens a thread at the latest timeline entry", async () => {
+    const originalScrollHeight = Object.getOwnPropertyDescriptor(
+      HTMLElement.prototype,
+      "scrollHeight",
+    );
+    const originalClientHeight = Object.getOwnPropertyDescriptor(
+      HTMLElement.prototype,
+      "clientHeight",
+    );
+    Object.defineProperty(HTMLElement.prototype, "scrollHeight", {
+      configurable: true,
+      get: () => 2_000,
+    });
+    Object.defineProperty(HTMLElement.prototype, "clientHeight", {
+      configurable: true,
+      get: () => 600,
+    });
+
+    try {
+      const user = userEvent.setup();
+      render(<Workbench onLogout={async () => undefined} />);
+      await user.click(
+        await screen.findByRole("button", { name: /远程控制开发/ }),
+      );
+
+      const timeline = document.querySelector(
+        ".timeline-scroll",
+      ) as HTMLElement;
+      expect(timeline.scrollTop).toBe(2_000);
+    } finally {
+      if (originalScrollHeight) {
+        Object.defineProperty(
+          HTMLElement.prototype,
+          "scrollHeight",
+          originalScrollHeight,
+        );
+      } else {
+        Reflect.deleteProperty(HTMLElement.prototype, "scrollHeight");
+      }
+      if (originalClientHeight) {
+        Object.defineProperty(
+          HTMLElement.prototype,
+          "clientHeight",
+          originalClientHeight,
+        );
+      } else {
+        Reflect.deleteProperty(HTMLElement.prototype, "clientHeight");
+      }
+    }
+  });
 });

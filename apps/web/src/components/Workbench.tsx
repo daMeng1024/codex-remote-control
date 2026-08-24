@@ -20,7 +20,13 @@ import {
   RotateCw,
   ShieldAlert,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { api } from "../lib/api";
 import { openEventStream } from "../lib/events";
 import { ApprovalDrawer } from "./ApprovalDrawer";
@@ -173,6 +179,13 @@ export function Workbench({ onLogout }: WorkbenchProps) {
   const draftSequence = useRef(0);
   const refreshTimer = useRef<number | null>(null);
   const loadThreadsRef = useRef<() => Promise<void>>(async () => undefined);
+  const timelineScrollRef = useRef<HTMLDivElement | null>(null);
+  const timelineInitialThreadRef = useRef<string | null>(null);
+  const timelineStickToBottomRef = useRef(true);
+  const pendingOlderScrollRef = useRef<{
+    scrollTop: number;
+    scrollHeight: number;
+  } | null>(null);
 
   const loadBootstrap = useCallback(async () => {
     const value = await api.bootstrap();
@@ -337,11 +350,39 @@ export function Workbench({ onLogout }: WorkbenchProps) {
     [],
   );
 
+  useLayoutEffect(() => {
+    const element = timelineScrollRef.current;
+    if (!element || !selectedId || !detail || detailLoading) return;
+
+    const previousScroll = pendingOlderScrollRef.current;
+    if (previousScroll) {
+      pendingOlderScrollRef.current = null;
+      element.scrollTop =
+        previousScroll.scrollTop +
+        (element.scrollHeight - previousScroll.scrollHeight);
+      return;
+    }
+
+    if (timelineInitialThreadRef.current !== selectedId) {
+      timelineInitialThreadRef.current = selectedId;
+      timelineStickToBottomRef.current = true;
+      element.scrollTop = element.scrollHeight;
+      return;
+    }
+
+    if (timelineStickToBottomRef.current) {
+      element.scrollTop = element.scrollHeight;
+    }
+  }, [detail, detailLoading, selectedId]);
+
   const selectThread = async (id: string) => {
     const previous = selectedIdRef.current;
     if (previous && previous !== id)
       void api.unsubscribe(previous).catch(() => undefined);
     selectedIdRef.current = id;
+    timelineInitialThreadRef.current = null;
+    pendingOlderScrollRef.current = null;
+    timelineStickToBottomRef.current = true;
     selectedArchivedRef.current =
       threads.find((thread) => thread.id === id)?.archived ?? false;
     setSelectedId(id);
@@ -354,6 +395,9 @@ export function Workbench({ onLogout }: WorkbenchProps) {
   const closeDetail = () => {
     if (selectedId) void api.unsubscribe(selectedId).catch(() => undefined);
     selectedIdRef.current = null;
+    timelineInitialThreadRef.current = null;
+    pendingOlderScrollRef.current = null;
+    timelineStickToBottomRef.current = true;
     selectedArchivedRef.current = false;
     setSelectedId(null);
     setDetail(null);
@@ -439,11 +483,19 @@ export function Workbench({ onLogout }: WorkbenchProps) {
 
   const loadOlder = async () => {
     if (!selectedId || !detail?.nextTurnsCursor) return;
+    const timelineScroll = timelineScrollRef.current;
+    const previousScroll = timelineScroll
+      ? {
+          scrollTop: timelineScroll.scrollTop,
+          scrollHeight: timelineScroll.scrollHeight,
+        }
+      : null;
     const older = await api.thread(
       selectedId,
       detail.nextTurnsCursor,
       selectedArchivedRef.current,
     );
+    pendingOlderScrollRef.current = previousScroll;
     setDetail({
       ...detail,
       turns: [...older.turns, ...detail.turns],
@@ -553,7 +605,19 @@ export function Workbench({ onLogout }: WorkbenchProps) {
             </header>
 
             <div className="conversation-content">
-              <div className="timeline-scroll">
+              <div
+                ref={timelineScrollRef}
+                className="timeline-scroll"
+                onScroll={() => {
+                  const element = timelineScrollRef.current;
+                  if (!element) return;
+                  const distanceFromBottom =
+                    element.scrollHeight -
+                    element.scrollTop -
+                    element.clientHeight;
+                  timelineStickToBottomRef.current = distanceFromBottom < 96;
+                }}
+              >
                 {detail?.nextTurnsCursor ? (
                   <button
                     className="load-older"

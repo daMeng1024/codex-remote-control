@@ -796,6 +796,60 @@ textarea:focus {
   border-radius: 6px;
 }
 
+.code-disclosure {
+  max-width: 100%;
+  margin: 0 0 0.8em;
+  overflow: hidden;
+  color: #d8e1dc;
+  background: #171b19;
+  border: 1px solid #2d3531;
+  border-radius: 6px;
+}
+
+.code-disclosure summary,
+.output-disclosure summary {
+  display: flex;
+  min-height: 36px;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 11px;
+  color: #d8e1dc;
+  background: #202723;
+  cursor: pointer;
+  list-style: none;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.code-disclosure summary::-webkit-details-marker,
+.output-disclosure summary::-webkit-details-marker {
+  display: none;
+}
+
+.code-disclosure summary:focus-visible,
+.output-disclosure summary:focus-visible {
+  outline: 2px solid #8cc8aa;
+  outline-offset: -2px;
+}
+
+.code-disclosure summary .summary-chevron,
+.output-disclosure summary .summary-chevron {
+  margin-left: auto;
+  transition: transform 0.18s ease;
+}
+
+.code-disclosure[open] summary .summary-chevron,
+.output-disclosure[open] summary .summary-chevron {
+  transform: rotate(180deg);
+}
+
+.markdown-content .code-disclosure > pre {
+  margin: 0;
+  border: 0;
+  border-top: 1px solid #2d3531;
+  border-radius: 0;
+}
+
 .markdown-content pre code {
   padding: 0;
   color: inherit;
@@ -856,7 +910,6 @@ textarea:focus {
 }
 
 .command-block,
-.tool-output,
 .file-change {
   margin: 8px 0 0 36px;
   overflow: hidden;
@@ -865,10 +918,46 @@ textarea:focus {
   border-radius: 6px;
 }
 
+.output-disclosure {
+  margin: 8px 0 0 36px;
+  overflow: hidden;
+  background: #171b19;
+  border: 1px solid #2d3531;
+  border-radius: 6px;
+}
+
+.command-block .output-disclosure {
+  margin: 0;
+  border: 0;
+  border-top: 1px solid #2d3531;
+  border-radius: 0;
+}
+
+.diff-disclosure {
+  margin: 0;
+  color: #3f4943;
+  background: #fafcfb;
+  border-color: var(--line);
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+}
+
+.diff-disclosure summary {
+  color: var(--muted);
+  background: var(--surface-subtle);
+}
+
+.output-meta {
+  margin-left: auto;
+  color: #8da097;
+  font-size: 11px;
+  font-weight: 500;
+}
+
 .command-line,
 .command-cwd,
 .command-block pre,
-.tool-output,
+.output-disclosure > pre,
 .diff-view {
   font:
     12px/1.6 ui-monospace,
@@ -890,7 +979,7 @@ textarea:focus {
 }
 
 .command-block pre,
-.tool-output {
+.output-disclosure > pre {
   max-height: 360px;
   margin: 0;
   padding: 11px 12px;
@@ -1434,7 +1523,7 @@ textarea:focus {
   }
   .reasoning-entry,
   .command-block,
-  .tool-output,
+  .output-disclosure,
   .file-change {
     margin-left: 0;
   }

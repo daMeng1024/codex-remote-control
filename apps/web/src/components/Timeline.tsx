@@ -12,6 +12,7 @@ import {
   Terminal,
   UserRound,
 } from "lucide-react";
+import type { ReactNode } from "react";
 import { MarkdownContent } from "./MarkdownContent";
 
 interface TimelineProps {
@@ -39,6 +40,31 @@ function Diff({ diff }: { diff: string }) {
         </span>
       ))}
     </pre>
+  );
+}
+
+function OutputDisclosure({
+  label,
+  value,
+  children,
+  className = "",
+}: {
+  label: string;
+  value: string;
+  children: ReactNode;
+  className?: string;
+}) {
+  const lineCount = value.split("\n").length;
+  return (
+    <details className={`output-disclosure ${className}`.trim()}>
+      <summary>
+        <Terminal size={15} aria-hidden="true" />
+        <span>{label}</span>
+        <span className="output-meta">{lineCount} 行</span>
+        <ChevronDown size={15} className="summary-chevron" aria-hidden="true" />
+      </summary>
+      {children}
+    </details>
   );
 }
 
@@ -143,7 +169,11 @@ function TimelineItem({
         <div className="command-block">
           <div className="command-line">$ {item.command}</div>
           {item.cwd ? <div className="command-cwd">{item.cwd}</div> : null}
-          {item.output ? <pre>{item.output}</pre> : null}
+          {item.output ? (
+            <OutputDisclosure label="查看输出" value={item.output}>
+              <pre>{item.output}</pre>
+            </OutputDisclosure>
+          ) : null}
           {item.exitCode !== null ? (
             <div
               className={`exit-code ${item.exitCode === 0 ? "success" : "failed"}`}
@@ -154,7 +184,9 @@ function TimelineItem({
         </div>
       ) : null}
       {item.output && !item.command ? (
-        <pre className="tool-output">{item.output}</pre>
+        <OutputDisclosure label="查看输出" value={item.output}>
+          <pre>{item.output}</pre>
+        </OutputDisclosure>
       ) : null}
       {item.fileChanges.map((change) => (
         <section className="file-change" key={`${item.id}-${change.path}`}>
@@ -162,7 +194,15 @@ function TimelineItem({
             <span>{change.path}</span>
             <span>{change.kind}</span>
           </header>
-          {change.diff ? <Diff diff={change.diff} /> : null}
+          {change.diff ? (
+            <OutputDisclosure
+              className="diff-disclosure"
+              label="查看 diff"
+              value={change.diff}
+            >
+              <Diff diff={change.diff} />
+            </OutputDisclosure>
+          ) : null}
         </section>
       ))}
     </article>
